@@ -24,6 +24,38 @@ rate — so what you see is where the beam went and how long it lingered there.
 corner and the soft trail on the ring — neither is drawn. Rendered by `gvtest`,
 the offline harness.</sub>
 
+<!-- downloads:start -->
+
+## Download
+
+**[v0.1.0](https://github.com/stoatworks-labs/galvo/releases/tag/v0.1.0)** — prebuilt for macOS and Windows. Pick your platform:
+
+<details>
+<summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`galvo-0.1.0-macos-universal.dmg`](https://github.com/stoatworks-labs/galvo/releases/download/v0.1.0/galvo-0.1.0-macos-universal.dmg) | 247 KB |
+| Universal (Apple Silicon + Intel) · .zip archive | [`galvo-macos-universal.zip`](https://github.com/stoatworks-labs/galvo/releases/latest/download/galvo-macos-universal.zip) | 208 KB |
+
+</details>
+
+<details>
+<summary><b>Windows</b> — x64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .exe installer | [`galvo-0.1.0-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/galvo/releases/download/v0.1.0/galvo-0.1.0-windows-x86_64-setup.exe) | 233 KB |
+| x64 · .zip archive | [`galvo-windows-x86_64.zip`](https://github.com/stoatworks-labs/galvo/releases/latest/download/galvo-windows-x86_64.zip) | 129 KB |
+
+</details>
+
+All builds, checksums and release notes: [github.com/stoatworks-labs/galvo/releases](https://github.com/stoatworks-labs/galvo/releases).
+
+macOS builds are signed and notarised and open normally. The Windows builds are unsigned, so SmartScreen warns once.
+
+<!-- downloads:end -->
+
 ## The one idea
 
 A laser show is **a path scanned by two mirrors with a finite point budget.**
