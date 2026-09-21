@@ -155,7 +155,7 @@ macOS 26.4 — except the three Windows rows, which come from a run on
 | In an FFGL host (macOS) | `oxbow` instantiates it and renders 120 frames, no GL error |
 | In Resolume, on Windows | Arena 7.27.1 (build 15990) lists `SW Galvo` under `idstring` `GV01` among 112 video effects, loads the DLL, and instantiates it from Arena's own effects browser; the shaders compile and it logs `initialised`. On **Mesa llvmpipe**, a software rasteriser — no GPU, and nothing was timed |
 | In an FFGL host on x64 Windows | `oxbow selftest`: 120 frames, gl error `0x0`, **PASS**, with 35,726 of 921,600 pixels lit (3.9%) |
-| macOS binary | universal (`x86_64 arm64`), exports `plugMain`, ad-hoc signs |
+| macOS binary | a local build is universal (`x86_64 arm64`), exports `plugMain`, and ad-hoc signs |
 | Windows binary | x64 `Galvo.dll`, 404,992 bytes, `dumpbin /EXPORTS` shows `plugMain` |
 | Render cost | 0.7–1.0 ms/frame at 720p and 1080p (they are indistinguishable), 1.4–1.6 at 4K |
 
@@ -165,10 +165,12 @@ scanner interval and there are as many of those at 720p as at 4K. That is why
 720p and 1080p time the same, and why **lowering `Trace Size` is the
 performance control** rather than lowering the output resolution.
 
-**The Windows side.** The x64 DLL is cross-compiled in the Parallels guest on
-this Mac (ARM64 Windows 11, MSVC 2022 Build Tools, `cmake -A x64`, vcpkg
-triplet `x64-windows-static-md`); there is no x64 Windows machine in the build
-loop. It was then dropped into Arena 7.27.1 on win-lab, which has no GPU — the
+**The Windows side.** The released x64 DLL is built by the release workflow on
+a GitHub `windows-latest` runner. The one tested in Arena was cross-compiled in
+the Parallels guest on this Mac (ARM64 Windows 11, MSVC 2022 Build Tools,
+`cmake -A x64`, vcpkg triplet `x64-windows-static-md`), because there is no x64
+Windows machine in the local build loop, and CI itself is macOS-only. That
+hand-built DLL was dropped into Arena 7.27.1 on win-lab, which has no GPU — the
 OpenGL there is Mesa llvmpipe (`4.5 (Core Profile) Mesa 26.2.0`) placed beside
 Arena. The plugin registered, the DLL loaded, and applying the effect from
 Arena's own browser drew its inspector, groups and all, and logged
@@ -181,7 +183,7 @@ figures above remain macOS-only.
 on macOS, and never used to drive a real laser — this models an ILDA scanner,
 it does not output ILDA. Nothing on Windows was exercised beyond instantiation:
 no long session, no composition save and reload, no preset recall in the host.
-No OpenFX port, no browser demo, no release tag, no factory presets, and no
+No OpenFX port, no browser demo, no user guide, no factory presets, and no
 Plotter mode. See [AGENTS.md](AGENTS.md) for the full list of what is assumed
 rather than measured, and for the traps.
 

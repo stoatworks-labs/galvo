@@ -301,9 +301,10 @@ from Mesa llvmpipe dropped in beside Arena):
 - **The x64 DLL builds and exports the entry point.** It is cross-compiled in
   the Parallels guest on this Mac (ARM64 Windows 11, MSVC 2022 Build Tools,
   `cmake -A x64`, vcpkg triplet `x64-windows-static-md`) — the same route the
-  fleet's `~/Projects/resolume/winbuild` scripts use; there is no x64 Windows
-  machine in the build loop. `Galvo.dll` is **404,992 bytes** and
-  `dumpbin /EXPORTS` shows **`plugMain`**.
+  fleet's `~/Projects/resolume/winbuild` scripts use, because there is no x64
+  Windows machine in the *local* build loop. `Galvo.dll` is **404,992 bytes** and
+  `dumpbin /EXPORTS` shows **`plugMain`**. The released DLL is a separate build,
+  made by the release workflow on a GitHub runner.
 - **Resolume Arena registers it.** Arena 7.27.1 (build 15990) lists `SW Galvo`
   among 112 video effects via `/api/v1/effects`, under `idstring` `GV01`, with
   the description the plugin declares.
@@ -344,7 +345,10 @@ save and reload, no preset recall.
   builds, registers, loads and instantiates in Arena on win-lab (above), and
   passes `oxbow selftest` there. What is still missing is a GPU: no frame
   timing was taken on Windows and nothing about performance there is known.
-  There is still no Windows CI run behind this, only a workflow that would.
+  The DLL tested in Arena was the hand-built one; the released DLL comes from
+  the release workflow's `windows-latest` job, which has run and passed, but
+  that build has never been put in front of Arena. `ci.yml` is macOS-only, so
+  no Windows build runs on a push.
 - **The one-frame-old question does not arise, and that is a cost.** The
   readback is synchronous rather than a double-buffered PBO like vectrix's, so
   the trace is of *this* frame — at the price of a pipeline stall. A PBO would
@@ -353,12 +357,13 @@ save and reload, no preset recall.
 - **No Plotter mode**, which the spec offered as optional. The scanner is
   finished and verified; the plotter is not started.
 - **No OpenFX port and no browser demo**, neither required for 0.1.0.
-- **`StoatworksAbout.h` and `ATTRIBUTIONS.md` are provisional hand copies**,
-  written in the shape the fleet's sync scripts generate, with `guide=""`
-  because no user guide exists. Register the project in the website's
-  `projects.json` and re-run the syncs before any release — the About facts
-  were chosen so the button count, and therefore the parameter count, does not
-  change when they are regenerated.
+- **`ATTRIBUTIONS.md` is still a provisional hand copy**, written in the shape
+  the fleet's sync scripts generate. `sync-attributions.py` does not know this
+  repo yet, so the next thing to register it in is that script's master lists.
+  `StoatworksAbout.h` is no longer hand-written: the project is registered in
+  the website's `projects.json`, in `sync-about.py`'s TARGETS and in
+  `attributions/names.json`, and the header is generated from there. It still
+  carries `guide=""`, because no user guide exists.
 
 ---
 
