@@ -151,11 +151,13 @@ macOS 26.4:
 | No dead controls | all **24** swept parameters measurably change the picture |
 | In an FFGL host | `oxbow` instantiates it and renders 120 frames, no GL error |
 | macOS binary | universal (`x86_64 arm64`), exports `plugMain`, ad-hoc signs |
-| Render cost | 0.75 ms/frame at 720p, 0.87 at 1080p, 1.42 at 4K |
+| Render cost | 0.7–1.0 ms/frame at 720p and 1080p (they are indistinguishable), 1.4–1.6 at 4K |
 
 Most of that cost is **one synchronous readback**, not the GPU: the beam
-renderer is about 0.15 ms at every resolution. Lowering `Trace Size` is the
-performance control.
+renderer is about 0.15 ms at every resolution, because it draws one quad per
+scanner interval and there are as many of those at 720p as at 4K. That is why
+720p and 1080p time the same, and why **lowering `Trace Size` is the
+performance control** rather than lowering the output resolution.
 
 **Not yet done:** never loaded into Resolume, and never used to drive a real
 laser — this models an ILDA scanner, it does not output ILDA. No Windows run

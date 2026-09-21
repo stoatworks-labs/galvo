@@ -247,19 +247,25 @@ plugin is plain C++ that a test can call with no context at all.
   `x86_64 arm64`, `nm -gU` finds `_plugMain`, the plist names a binary that is
   really there, and the ad-hoc codesign the release job runs succeeds.
 - **The render cost**, by `gvtest --bench` (60 frames each, 20-frame warm-up,
-  `glFinish` both sides, default controls):
+  `glFinish` both sides, default controls), over four runs:
 
   | | ms/frame | of which CPU | readback alone |
   | --- | --- | --- | --- |
-  | 1280×720 | 0.75 | 0.62 | 0.39 |
-  | 1920×1080 | 0.87 | 0.74 | 0.44 |
-  | 3840×2160 | 1.42 | 1.27 | 0.95 |
+  | 1280×720 | 0.69 – 0.96 | 0.55 – 0.82 | 0.33 – 0.59 |
+  | 1920×1080 | 0.77 – 0.90 | 0.64 – 0.76 | 0.33 – 0.45 |
+  | 3840×2160 | 1.43 – 1.61 | 1.27 – 1.45 | 0.94 – 1.12 |
 
-  Note what that says: **the GPU is not the cost, the readback is.** The beam
-  renderer is about 0.15 ms at every resolution because it draws one quad per
-  interval and the interval count depends on the point rate, not the raster.
-  Scaling with resolution is almost entirely `glReadPixels` stalling the
-  pipeline. Lowering Trace Size is therefore the performance control.
+  Ranges rather than figures, because the spread is the finding. **720p and
+  1080p are indistinguishable** — 720p came out slower than 1080p in two runs
+  of four — and the reason is that this plugin's cost is not its rasterisation.
+  The GPU half is about 0.15 ms at every resolution, because it draws one quad
+  per scanner interval and the interval count depends on the point rate rather
+  than on the raster. Everything else is `glReadPixels` stalling the pipeline,
+  and how long that stalls depends on what was queued behind it.
+
+  Two things follow. **Lowering Trace Size is the performance control**, not
+  lowering the output resolution. And a PBO would move the needle here in a way
+  nothing else would — see the assumptions below.
 
 **Assumed, or not yet done:**
 
