@@ -215,8 +215,10 @@ figures above remain macOS-only.
 on macOS, and never used to drive a real laser — this models an ILDA scanner,
 it does not output ILDA. Nothing on Windows was exercised beyond instantiation:
 no long session, no composition save and reload, no preset recall in the host.
-No OpenFX port, no browser demo, no user guide, no factory presets, and no
-Plotter mode. See [AGENTS.md](AGENTS.md) for the full list of what is assumed
+No OpenFX port, no user guide, no factory presets, and no Plotter mode. The
+[browser demo](https://galvo-demo.stoatworks-labs.com/) runs the plugin's own
+shaders but its CPU half — the tracer, the point stream and the galvo model —
+is a hand port to JavaScript, and nothing checks a port but a reader. See [AGENTS.md](AGENTS.md) for the full list of what is assumed
 rather than measured, and for the traps.
 
 <!-- attributions:start -->

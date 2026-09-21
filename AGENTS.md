@@ -207,6 +207,10 @@ effect lands on the composition, and `/api/v1/…/clips/1` still showed only
     tools/gvtest/          the offline harness.
     tools/sweep.py         no control is silently dead.
     tools/verify.sh        all of it, plus what the release job would check.
+    demo/                  the browser demo. plugin.js holds a copy of every
+                           shader and a PORT of the four CPU files; vendor/ is
+                           the shared kit and is not edited here.
+    demo/tools/            check_shaders.py: the copies have not drifted.
 
 The frame, in order:
 
@@ -367,6 +371,52 @@ save and reload, no preset recall.
 
 ---
 
+## The browser demo
+
+`demo/` is the page at **galvo-demo.stoatworks-labs.com**. It is the hard case
+in that suite, and worth understanding before changing anything in it.
+
+Every other demo in the fleet is a shader with some parameter arithmetic around
+it, so porting one means copying the GLSL across and re-deriving a few
+mappings. **This plugin is not a shader.** Between the edge passes and the beam
+renderer sits the entire CPU half — `Tracer`, `PointStream`, `Scanner` and
+`Controls` — and without it the page would render a black canvas. So all four
+are ported into `demo/plugin.js`, in JavaScript, function for function, and
+that port is the demo's weak point: `check_shaders.py` proves the GLSL is the
+plugin's, and **nothing at all proves the port is**. Change one of those four
+files and change the page by hand to match.
+
+Three things in the page are deliberately not what the plugin does, each
+because WebGL2 will not do the plugin's version:
+
+- **The two stabilise buffers are RGBA8, not RGBA16F.** The plugin reads its
+  mask back with `GL_RED`/`GL_UNSIGNED_BYTE`; WebGL2 refuses a byte read of a
+  float framebuffer, and the alternatives (`RGBA`/`FLOAT`, or a half-float read
+  and a manual decode) are either not portable or not worth it for a buffer
+  whose useful channel is a byte in the plugin too. The cost is that the green
+  channel — the pre-threshold value Stability feeds back — is quantised, so the
+  temporal filter has coarser memory on the page than in the plugin.
+- **The four `FF_TYPE_INTEGER` parameters are dropdowns**, because the demo kit
+  has no integer control. Trace Size is the one that had to be thinned: 481
+  entries is not a control, so the page offers every twentieth pixel.
+- **The About block is absent**, as on every page in the suite.
+
+The page also carries a line of statistics under the canvas — contours, points
+in the stream, points scanned this frame, and the CPU cost. That is not
+decoration. Galvo's most distinctive behaviour is what happens when a frame
+exceeds the scanner's point budget, and without those numbers a crawling
+picture reads as a broken page rather than as a projector running out of
+points. The `Too busy to draw` preset puts a visitor there in one click.
+
+The clip list is ordered `alpha` first on purpose. The Geometry card — the
+fleet's default choice — is a fine-line test card, and at a 320-pixel trace
+resolution taken from a 960-pixel picture its lines are below the mip level the
+Sobel reads at, so it traces almost nothing. That is correct behaviour and it
+looks like a bug. `Shape on transparency` is a logo-shaped outline, which is
+what this plugin is for.
+
+---
+
 ## Decisions taken without asking
 
 The brief said to decide and move on, so: **Detect On** carries tinsel's four
@@ -381,6 +431,16 @@ reference is a camera watching a laser, which is how anybody has ever seen one
 photographed. **There are no factory presets**, because the fleet's preset
 mechanism carries a host-echo trap that deserves its own pass rather than being
 copied in at the end of a build.
+
+For the browser demo, again without asking: **the whole CPU chain is ported
+rather than a subset of it**, because every part of it is load-bearing for the
+picture — drop the tracer and there is nothing to scan, drop the scanner and
+there is no crawl, drop the corner dwell and the thing the plugin is for is
+gone. **The page's presets are the page's own** and are labelled as such, since
+the plugin ships none. And **`gvtest --pipe` reads whole frames or stops**: a
+partial frame at the end of a pipe is the end of the stream, not a frame to
+render, because half a frame of garbage through a plugin with memory poisons
+every frame after it.
 
 ## Notes
 

@@ -23,6 +23,38 @@
                                         the ratio its dwell points predict
         gvtest --bench                  ms/frame at 720p through 4K, CPU and
                                         GPU separately
+        gvtest --pipe                   raw frames in, raw frames out
+
+    `--pipe` takes the fleet's frame format, so one filming script can drive
+    any of the FFGL plugins:
+
+        ffmpeg -i in.mov -f rawvideo -pix_fmt rgba - \
+          | gvtest --pipe --size 1920x1080 [--script cues.txt] \
+          | ffmpeg -f rawvideo -pix_fmt rgba -s 1920x1080 -i - out.mov
+
+    `--script` is a plain text file of `frame  Parameter Name  value` lines.
+    Values are held before the first key and after the last, and linearly
+    interpolated between. The format is identical to tinseltest's, old-cathode's
+    octest and porthole's phtest on purpose, so one build.py can film any of
+    them -- and a value is in that parameter's OWN units, exactly as `--set`
+    takes it, so `Galvo Speed` is in kpps and `Trace Size` in pixels while
+    everything else is 0..1.
+
+    Two things that will catch you, and neither announces itself:
+
+      * Interpolating an OPTION parameter -- Detect On, Frame Sync, Colour Mode,
+        Background -- produces the intermediate values on the way, so a move
+        from Black to Edge Mask passes through Clip, Dimmed Clip and Alpha. Key
+        them one frame apart to cut, and give every such parameter a hold key at
+        the END of each section it must not move in.
+
+      * This plugin has MEMORY. The stabilise pass is ping-ponged, the
+        accumulation buffer decays rather than clearing, and the scanner carries
+        its cursor and its mirrors across frames -- so a frame out of this pipe
+        depends on every frame before it. That is the point of the effect, but
+        it means you cannot seek: a reel has to be filmed from its first frame,
+        and the clock is synthetic (index / fps) so a stall in ffmpeg does not
+        show up as the scanner speeding up.
 */
 
 #include "Controls.h"
@@ -36,12 +68,18 @@
 #include <OpenGL/gl3.h>
 #include <zlib.h>
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <map>
+#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace galvo;
@@ -396,6 +434,19 @@ const char* typeName( unsigned int type )
 	}
 }
 
+/// The parameter a display name refers to, or PT_COUNT. Shared by --set and
+/// the --pipe cue sheet, so the two cannot disagree about what a name means.
+unsigned int findParameter( Galvo& plugin, const std::string& name )
+{
+	for( unsigned int i = 0; i < Galvo::PT_COUNT; ++i )
+	{
+		const char* declared = plugin.GetParamName( i );
+		if( declared != nullptr && name == declared )
+			return i;
+	}
+	return Galvo::PT_COUNT;
+}
+
 bool applySetting( Galvo& plugin, const std::string& assignment, std::string& error )
 {
 	const size_t equals = assignment.find( '=' );
@@ -406,12 +457,10 @@ bool applySetting( Galvo& plugin, const std::string& assignment, std::string& er
 	}
 	const std::string name  = assignment.substr( 0, equals );
 	const std::string value = assignment.substr( equals + 1 );
-	for( unsigned int i = 0; i < Galvo::PT_COUNT; ++i )
+	const unsigned int index = findParameter( plugin, name );
+	if( index < Galvo::PT_COUNT )
 	{
-		const char* declared = plugin.GetParamName( i );
-		if( declared == nullptr || name != declared )
-			continue;
-		plugin.SetFloatParameter( i, std::strtof( value.c_str(), nullptr ) );
+		plugin.SetFloatParameter( index, std::strtof( value.c_str(), nullptr ) );
 		return true;
 	}
 	error = "no parameter called '" + name + "'";
@@ -1094,6 +1143,197 @@ int runBench( int frames, double fps )
 }
 
 //---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+// --pipe: raw RGBA frames in, raw RGBA frames out, through the real plugin.
+//
+// The fleet's frame format, so one filming script drives any of the plugins.
+// See the note at the top of this file for the two traps: an option parameter
+// interpolates through every value between its keys, and this plugin carries
+// state across frames, so a reel has to be filmed from its first frame.
+//---------------------------------------------------------------------------
+using Track = std::vector< std::pair< int, float > >;
+
+std::map< std::string, Track > loadScript( const std::string& path, std::string& error )
+{
+	std::map< std::string, Track > tracks;
+	std::ifstream file( path );
+	if( !file )
+	{
+		error = "cannot open " + path;
+		return tracks;
+	}
+
+	std::string line;
+	int lineNumber = 0;
+	while( std::getline( file, line ) )
+	{
+		++lineNumber;
+		const size_t hash = line.find( '#' );
+		if( hash != std::string::npos )
+			line.erase( hash );
+		std::istringstream in( line );
+
+		int frame = 0;
+		if( !( in >> frame ) )
+			continue;//blank or comment
+
+		//The name is everything up to the last token, because parameters have
+		//spaces in them ("Galvo Speed") and the value never does.
+		std::vector< std::string > words;
+		std::string word;
+		while( in >> word )
+			words.push_back( word );
+		if( words.size() < 2 )
+		{
+			error = path + ":" + std::to_string( lineNumber ) + ": expected `frame Parameter Name value`";
+			return {};
+		}
+
+		const float value = std::strtof( words.back().c_str(), nullptr );
+		words.pop_back();
+		std::string name = words.front();
+		for( size_t i = 1; i < words.size(); ++i )
+			name += " " + words[ i ];
+
+		tracks[ name ].emplace_back( frame, value );
+	}
+
+	for( auto& entry : tracks )
+		std::sort( entry.second.begin(), entry.second.end() );
+	return tracks;
+}
+
+float valueAt( const Track& track, int frame )
+{
+	if( track.empty() )
+		return 0.0f;
+	if( frame <= track.front().first )
+		return track.front().second;
+	if( frame >= track.back().first )
+		return track.back().second;
+
+	for( size_t i = 1; i < track.size(); ++i )
+	{
+		if( frame <= track[ i ].first )
+		{
+			const auto& a    = track[ i - 1 ];
+			const auto& b    = track[ i ];
+			const float span = static_cast< float >( b.first - a.first );
+			const float t    = span > 0.0f ? ( static_cast< float >( frame - a.first ) / span ) : 1.0f;
+			return a.second + ( b.second - a.second ) * t;
+		}
+	}
+	return track.back().second;
+}
+
+int runPipe( int width, int height, double fps, const std::string& scriptPath,
+             const std::vector< std::string >& settings )
+{
+	Galvo plugin;
+	for( const std::string& setting : settings )
+	{
+		std::string error;
+		if( !applySetting( plugin, setting, error ) )
+		{
+			std::fprintf( stderr, "--set %s: %s\n", setting.c_str(), error.c_str() );
+			return 2;
+		}
+	}
+
+	//Resolve the script's parameter names to indices once, up front, and refuse
+	//to run on a name that is not a parameter. A misspelled name that silently
+	//did nothing would produce a take that looks deliberate and is wrong -- the
+	//reel would simply hold whatever the default was, with a caption over it
+	//describing the control that never moved.
+	std::map< unsigned int, Track > automation;
+	if( !scriptPath.empty() )
+	{
+		std::string error;
+		const std::map< std::string, Track > tracks = loadScript( scriptPath, error );
+		if( !error.empty() )
+		{
+			std::fprintf( stderr, "%s\n", error.c_str() );
+			return 2;
+		}
+		for( const auto& entry : tracks )
+		{
+			const unsigned int index = findParameter( plugin, entry.first );
+			if( index >= Galvo::PT_COUNT )
+			{
+				std::fprintf( stderr, "script names '%s', which is not a parameter (try --list)\n",
+				              entry.first.c_str() );
+				return 2;
+			}
+			automation[ index ] = entry.second;
+		}
+	}
+
+	FFGLViewportStruct viewport = {};
+	viewport.width  = static_cast< FFUInt32 >( width );
+	viewport.height = static_cast< FFUInt32 >( height );
+	if( plugin.InitGL( &viewport ) != FF_SUCCESS )
+	{
+		std::fprintf( stderr, "InitGL failed -- see the diagnostics log for which shader\n" );
+		return 1;
+	}
+
+	const std::vector< unsigned char > blank( static_cast< size_t >( width ) * height * 4, 0 );
+	Rig rig( width, height, blank );
+
+	std::vector< unsigned char > frame( static_cast< size_t >( width ) * height * 4 );
+
+	for( int index = 0;; ++index )
+	{
+		//A short read is normal on a pipe, so fill the frame before doing
+		//anything with it. A partial frame at the end of the stream is the end
+		//of the stream, not a frame.
+		size_t filled = 0;
+		while( filled < frame.size() )
+		{
+			const ssize_t got = read( STDIN_FILENO, frame.data() + filled, frame.size() - filled );
+			if( got <= 0 )
+				break;
+			filled += static_cast< size_t >( got );
+		}
+		if( filled < frame.size() )
+			break;
+
+		for( const auto& track : automation )
+			plugin.SetFloatParameter( track.first, valueAt( track.second, index ) );
+
+		//The same synthetic clock as the still path, so a filmed sequence
+		//advances at the frame rate it will be played back at rather than at
+		//whatever rate the pipe happens to deliver. It matters more here than
+		//in most of the fleet: the clock IS the scanner's point budget, so a
+		//stall in ffmpeg would otherwise put a burst of points on one frame.
+		driveClock( plugin, index, fps );
+
+		//A raw frame arrives top row first and GL wants bottom row first.
+		rig.upload( flipRows( frame, width, height ) );
+		if( rig.render( plugin ) != FF_SUCCESS )
+		{
+			std::fprintf( stderr, "ProcessOpenGL failed on frame %d\n", index );
+			plugin.DeInitGL();
+			return 1;
+		}
+
+		const std::vector< unsigned char > out = flipRows( readBackRaw( rig.fbo, width, height ), width, height );
+		size_t written = 0;
+		while( written < out.size() )
+		{
+			const ssize_t put = write( STDOUT_FILENO, out.data() + written, out.size() - written );
+			if( put <= 0 )
+				break;
+			written += static_cast< size_t >( put );
+		}
+		if( written < out.size() )
+			break;//the consumer went away
+	}
+
+	plugin.DeInitGL();
+	return 0;
+}
+
 void usage()
 {
 	std::printf(
@@ -1113,6 +1353,8 @@ void usage()
 		"  --energy          the light in a frame does not depend on the galvo\n"
 		"  --dwell           a corner is brighter than a side by what its dwell predicts\n"
 		"  --bench           time ProcessOpenGL at 720p, 1080p and 4K\n"
+		"  --pipe            raw RGBA frames on stdin, raw RGBA frames on stdout\n"
+		"  --script PATH     parameter cues for --pipe: 'frame Parameter Name value'\n"
 		"  --help\n" );
 }
 } // namespace
@@ -1125,7 +1367,8 @@ int main( int argc, char** argv )
 	double fps  = 60.0;
 	float noise = 0.0f;
 	bool wantList = false, wantTrace = false, wantStep = false, wantBudget = false;
-	bool wantEnergy = false, wantDwell = false, wantBench = false;
+	bool wantEnergy = false, wantDwell = false, wantBench = false, wantPipe = false;
+	std::string scriptPath;
 	std::vector< std::string > settings;
 
 	for( int i = 1; i < argc; ++i )
@@ -1171,6 +1414,10 @@ int main( int argc, char** argv )
 			wantDwell = true;
 		else if( argument == "--bench" )
 			wantBench = true;
+		else if( argument == "--pipe" )
+			wantPipe = true;
+		else if( argument == "--script" && hasNext )
+			scriptPath = argv[ ++i ];
 		else
 		{
 			std::fprintf( stderr, "unknown argument: %s\n", argument.c_str() );
@@ -1224,7 +1471,9 @@ int main( int argc, char** argv )
 	}
 
 	int result = 0;
-	if( wantEnergy )
+	if( wantPipe )
+		result = runPipe( width, height, fps, scriptPath, settings );
+	else if( wantEnergy )
 		result = runEnergyCheck();
 	else if( wantDwell )
 		result = runDwellCheck();
