@@ -71,9 +71,24 @@ whole CPU half of this plugin is plain C++ — which is why CI runs them.
 - macOS build must be universal. Verify with `lipo`, never the build log.
 - FFGL id is `GV01`. Display name `SW Galvo` (16 characters is the limit).
 
+## Windows
+- The x64 `.dll` is **cross-compiled in the Parallels guest** on this Mac (ARM64
+  Windows 11, MSVC 2022 Build Tools, `cmake -A x64`, vcpkg triplet
+  `x64-windows-static-md`) — the route the fleet's
+  `~/Projects/resolume/winbuild` scripts take. No x64 Windows machine builds it.
+- Check it with `dumpbin /EXPORTS` for `plugMain`. The 2026-09-21 build was
+  404,992 bytes.
+- Tested on **win-lab** (x64 Windows 11 Pro, no GPU, Mesa llvmpipe beside
+  Arena). **Start Arena through the session-1 scheduled-task wrapper** — an ssh
+  session lands on the service window station and has no desktop. Instantiate
+  from Arena's own effects browser: the REST add-effect endpoint returns 200
+  and adds nothing. See `AGENTS.md`.
+
 ## Not done yet
-- **Never loaded into Resolume.** It loads, instantiates and renders 120 frames
-  under `oxbow`, which is an FFGL host but is not Resolume.
+- **Never run on a GPU in Resolume.** Arena 7.27.1 on Windows registers, loads
+  and instantiates it, and the shaders compile — on llvmpipe, a software
+  rasteriser. Nothing was timed there.
+- **Never instantiated in Arena on macOS.** Here it is `oxbow` only.
 - No release tag, no website registration, no OpenFX port, no browser demo.
 - `source/StoatworksAbout.h` and `ATTRIBUTIONS.md` are provisional hand copies.
 - No Plotter mode (the spec's optional second look).
@@ -85,4 +100,9 @@ Resolume), no bundle command. It exists for the one failure that actually
 happens: a shader that will not compile, which otherwise looks like "the effect
 does nothing" with no message anywhere.
 
-    ~/Library/Logs/galvo/galvo.YYYY-MM-DD.log
+    ~/Library/Logs/galvo/galvo.YYYY-MM-DD.log       macOS
+    %LOCALAPPDATA%\galvo\galvo.YYYY-MM-DD.log       Windows
+
+On Windows that log is the **proof of instantiation** — `plugin loaded build=…`,
+then the `GL vendor=…` line and `initialised` — because Arena's REST API will
+not show you an effect applied to the composition.

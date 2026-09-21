@@ -163,6 +163,33 @@ the scanner's budget is tiny and nothing is reproducible. `gvtest` drives
 `SetTime` on a synthetic 60 fps clock and declares its unit outright rather
 than letting the calibration infer one.
 
+**The host clock unit is not the same in the two hosts.** Under `oxbow` this
+plugin sees **seconds** — its detector settled on `scale=1.000000` by frame 60
+on the 2026-09-21 Windows run. Under **Arena** the host time is in
+**milliseconds** (raw ≈ 574,073 at the time of that run), which is what the
+unit detection is for and the first time that code has met a real host. Do not
+hard-code either unit, and do not assume a number logged under `oxbow` says
+anything about what Arena hands over.
+
+### Driving Arena on win-lab
+
+**An ssh session on Windows lands on the service window station, which has no
+desktop.** Launch Arena from there and it sits at about 31 MB doing nothing,
+cannot be screenshotted, and never loads a plugin. Arena has to be started in
+the console session (session 1) through the scheduled-task wrapper
+(`C:\arena-lab\s1.ps1` on win-lab). Everything else about the run depends on
+getting this right first.
+
+**Arena's REST API lists effects by `idstring`, and its add-effect endpoint
+lies.** `/api/v1/effects` and `/api/v1/sources` are a good registration check —
+they name the plugin under its FFGL id (`GV01` here), with the description the
+plugin declares — but POSTing an effect onto a layer or clip returns **200
+while adding nothing**. Instantiation has to be driven from Arena's own effects
+browser (double-click applies to the current selection), and the proof that it
+instantiated is the plugin's **diag log**, not the clip's effect list: the
+effect lands on the composition, and `/api/v1/…/clips/1` still showed only
+`Transform` afterwards.
+
 ---
 
 ## Shape of the code
@@ -267,14 +294,45 @@ plugin is plain C++ that a test can call with no context at all.
   lowering the output resolution. And a PBO would move the needle here in a way
   nothing else would — see the assumptions below.
 
+**Verified on Windows, on win-lab, 2026-09-21** (x64 Windows 11 Pro, **no
+GPU** — the adapter is the Microsoft Basic Display Adapter and OpenGL comes
+from Mesa llvmpipe dropped in beside Arena):
+
+- **The x64 DLL builds and exports the entry point.** It is cross-compiled in
+  the Parallels guest on this Mac (ARM64 Windows 11, MSVC 2022 Build Tools,
+  `cmake -A x64`, vcpkg triplet `x64-windows-static-md`) — the same route the
+  fleet's `~/Projects/resolume/winbuild` scripts use; there is no x64 Windows
+  machine in the build loop. `Galvo.dll` is **404,992 bytes** and
+  `dumpbin /EXPORTS` shows **`plugMain`**.
+- **Resolume Arena registers it.** Arena 7.27.1 (build 15990) lists `SW Galvo`
+  among 112 video effects via `/api/v1/effects`, under `idstring` `GV01`, with
+  the description the plugin declares.
+- **Arena loads the DLL.** The diag log under `%LOCALAPPDATA%\galvo\` carries
+  `plugin loaded build=<stamp>` with the stamp of the DLL built minutes earlier.
+- **Arena instantiates it and the shaders compile.** Applied from Arena's own
+  effects browser, it logged
+  `GL vendor=Mesa renderer=llvmpipe (LLVM 22.1.8, 256 bits) version=4.5 (Core Profile) Mesa 26.2.0`
+  followed by `initialised`, and Arena drew its inspector for it, groups and
+  all. The log is clean of WARN/ERROR/FAIL.
+- **It instantiates and renders headlessly on x64 Windows too.** `oxbow`, built
+  x64 in the same guest, ran `selftest`: **120 frames, gl error `0x0`, PASS**,
+  with **35,726 of 921,600 pixels lit (3.9%)**.
+
+Note what that run does **not** say. Everything ran on a software rasteriser,
+so there is **no GPU result and no performance result on Windows** — nothing was
+timed there, and the ms/frame table above stays macOS-only. Nothing beyond
+instantiation was exercised in the host either: no long session, no composition
+save and reload, no preset recall.
+
 **Assumed, or not yet done:**
 
-- **Never loaded into Resolume.** `oxbow` is an FFGL host and a real one, but
-  it is not Resolume: how the four groups present, whether 28 controls is too
-  many in practice, and whether an operator can find Blanking Delay are all
-  untested. Nothing has driven the host's own clock either — the millisecond
-  detection is tinsel's, carried over, and has not been seen against Resolume
-  here.
+- **Never run on a GPU in Resolume.** Arena has registered, loaded and
+  instantiated it, and drew its inspector with the four groups — but only on
+  Windows and only on llvmpipe. Whether 28 controls is too many in practice and
+  whether an operator can find Blanking Delay are still untested, and so is
+  every question about speed in the host.
+- **Never instantiated in Arena on macOS.** The bundle installs and `oxbow`
+  loads it here; Resolume on this machine has not.
 - **The kpps → bandwidth mapping is ours and is a rule of thumb.** A scanner
   rated at P pps is taken to settle a step in eight point periods at 0.7
   damping. That is stated in `Controls.h` so it can be argued with; it has not
@@ -282,8 +340,11 @@ plugin is plain C++ that a test can call with no context at all.
 - **No real projector has been driven.** This models an ILDA scanner; it does
   not output ILDA, and there is no DAC path. The point stream is ILDA-*style*,
   not ILDA-format.
-- **Windows is untried.** It has never been compiled for Windows, let alone
-  run: there is no Windows CI run behind this, only a workflow that would.
+- **Windows has been run, but only on a software rasteriser.** The x64 DLL
+  builds, registers, loads and instantiates in Arena on win-lab (above), and
+  passes `oxbow selftest` there. What is still missing is a GPU: no frame
+  timing was taken on Windows and nothing about performance there is known.
+  There is still no Windows CI run behind this, only a workflow that would.
 - **The one-frame-old question does not arise, and that is a cost.** The
   readback is synchronous rather than a double-buffered PBO like vectrix's, so
   the trace is of *this* frame — at the price of a pipeline stall. A PBO would

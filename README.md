@@ -6,10 +6,12 @@
 > step response against the exact second-order closed form, the light in a
 > frame against the analytic energy, a corner's brightness against what its
 > dwell points predict, and the contour tracer against shapes whose answer is
-> known (see [Status](#status)). It loads, instantiates and renders in a real
-> FFGL host, but it has **never been loaded into Resolume** and has never
-> driven a real laser. Check it in your own rig before trusting it in front of
-> an audience.
+> known (see [Status](#status)). It has been registered, loaded and
+> instantiated in **Resolume Arena 7.27.1 on Windows**, with the shaders
+> compiling — but that was on a **software rasteriser**, so it has **never run
+> on a GPU in Resolume**, has never been instantiated in Arena on macOS, and
+> has never driven a real laser. Check it in your own rig before trusting it in
+> front of an audience.
 
 An ILDA laser projector, as an FFGL effect for [Resolume](https://resolume.com)
 Arena and Avenue. It finds the outlines in a clip and scans them the way a real
@@ -139,7 +141,8 @@ all — the tracer, the scanner and the point budget are plain C++.
 ## Status
 
 **v0.1.0, and honestly early.** Verified by measurement on an M4 Max,
-macOS 26.4:
+macOS 26.4 — except the three Windows rows, which come from a run on
+**win-lab** (x64 Windows 11 Pro, no GPU) on 2026-09-21:
 
 | Check | Result |
 | --- | --- |
@@ -149,8 +152,11 @@ macOS 26.4:
 | Contour tracer | a square is one closed contour of perimeter 319 vs 320, in four vertices; a 270° arc is one open contour; a 3-pixel band still traces as one contour |
 | Point budget | 4000 points at 8 kpps take exactly 30 host frames, counter agreeing frame by frame |
 | No dead controls | all **24** swept parameters measurably change the picture |
-| In an FFGL host | `oxbow` instantiates it and renders 120 frames, no GL error |
+| In an FFGL host (macOS) | `oxbow` instantiates it and renders 120 frames, no GL error |
+| In Resolume, on Windows | Arena 7.27.1 (build 15990) lists `SW Galvo` under `idstring` `GV01` among 112 video effects, loads the DLL, and instantiates it from Arena's own effects browser; the shaders compile and it logs `initialised`. On **Mesa llvmpipe**, a software rasteriser — no GPU, and nothing was timed |
+| In an FFGL host on x64 Windows | `oxbow selftest`: 120 frames, gl error `0x0`, **PASS**, with 35,726 of 921,600 pixels lit (3.9%) |
 | macOS binary | universal (`x86_64 arm64`), exports `plugMain`, ad-hoc signs |
+| Windows binary | x64 `Galvo.dll`, 404,992 bytes, `dumpbin /EXPORTS` shows `plugMain` |
 | Render cost | 0.7–1.0 ms/frame at 720p and 1080p (they are indistinguishable), 1.4–1.6 at 4K |
 
 Most of that cost is **one synchronous readback**, not the GPU: the beam
@@ -159,12 +165,25 @@ scanner interval and there are as many of those at 720p as at 4K. That is why
 720p and 1080p time the same, and why **lowering `Trace Size` is the
 performance control** rather than lowering the output resolution.
 
-**Not yet done:** never loaded into Resolume, and never used to drive a real
-laser — this models an ILDA scanner, it does not output ILDA. No Windows run
-(the workflow exists; nothing has executed it), no OpenFX port, no browser
-demo, no release tag, no factory presets, and no Plotter mode. See
-[AGENTS.md](AGENTS.md) for the full list of what is assumed rather than
-measured, and for the traps.
+**The Windows side.** The x64 DLL is cross-compiled in the Parallels guest on
+this Mac (ARM64 Windows 11, MSVC 2022 Build Tools, `cmake -A x64`, vcpkg
+triplet `x64-windows-static-md`); there is no x64 Windows machine in the build
+loop. It was then dropped into Arena 7.27.1 on win-lab, which has no GPU — the
+OpenGL there is Mesa llvmpipe (`4.5 (Core Profile) Mesa 26.2.0`) placed beside
+Arena. The plugin registered, the DLL loaded, and applying the effect from
+Arena's own browser drew its inspector, groups and all, and logged
+`initialised`. That is registration, load and instantiation in Resolume, with
+the shaders compiling. It says **nothing about speed**, because a software
+rasteriser is not a GPU and no frame timing was taken on Windows. The ms/frame
+figures above remain macOS-only.
+
+**Not yet done:** never run on a GPU in Resolume, never instantiated in Arena
+on macOS, and never used to drive a real laser — this models an ILDA scanner,
+it does not output ILDA. Nothing on Windows was exercised beyond instantiation:
+no long session, no composition save and reload, no preset recall in the host.
+No OpenFX port, no browser demo, no release tag, no factory presets, and no
+Plotter mode. See [AGENTS.md](AGENTS.md) for the full list of what is assumed
+rather than measured, and for the traps.
 
 <!-- attributions:start -->
 This project is built on other people's work — see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
