@@ -18,6 +18,8 @@ Arena and Avenue. It finds the outlines in a clip and scans them the way a real
 projector does — two galvanometer mirrors chasing a point stream at a fixed
 rate — so what you see is where the beam went and how long it lingered there.
 
+**Video:** [What it does, in 50 seconds](https://www.youtube.com/watch?v=VdODFcz4YUY)
+
 ![A laser drawing of the test card: a red square, a cyan ring, a yellow bar and a white octagon, each with bright dots at its corners](docs/hero.png)
 
 <sub>The repo's test card scanned at 30 kpps. Note the bright dots at every
