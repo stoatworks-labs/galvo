@@ -360,7 +360,8 @@ save and reload, no preset recall.
   most valuable thing left to try.
 - **No Plotter mode**, which the spec offered as optional. The scanner is
   finished and verified; the plotter is not started.
-- **No OpenFX port and no browser demo**, neither required for 0.1.0.
+- **No OpenFX port**, not required for 0.1.0. The browser demo came later; see
+  *The browser demo* below.
 - **`ATTRIBUTIONS.md` is still a provisional hand copy**, written in the shape
   the fleet's sync scripts generate. `sync-attributions.py` does not know this
   repo yet, so the next thing to register it in is that script's master lists.
