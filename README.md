@@ -1,29 +1,30 @@
 # galvo
 
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
-> (Anthropic), directed and reviewed by a human author. The physics is verified
-> numerically by an offline harness that drives the real classes — the galvo's
+> (Anthropic), directed and reviewed by a human author. The physics is checked
+> numerically by an offline harness that drives the real classes: the galvo's
 > step response against the exact second-order closed form, the light in a
 > frame against the analytic energy, a corner's brightness against what its
 > dwell points predict, and the contour tracer against shapes whose answer is
-> known (see [Status](#status)). It has been registered, loaded and
+> known (see [Status](#status)). It's been registered, loaded and
 > instantiated in **Resolume Arena 7.27.1 on Windows**, with the shaders
-> compiling — but that was on a **software rasteriser**, so it has **never run
+> compiling, but that was on a **software rasteriser**, so it's **never run
 > on a GPU in Resolume**, has never been instantiated in Arena on macOS, and
-> has never driven a real laser. Check it in your own rig before trusting it in
-> front of an audience.
+> has never driven a real laser. Check it in your own rig before you trust it
+> in front of an audience.
 
 An ILDA laser projector, as an FFGL effect for [Resolume](https://resolume.com)
 Arena and Avenue. It finds the outlines in a clip and scans them the way a real
-projector does — two galvanometer mirrors chasing a point stream at a fixed
-rate — so what you see is where the beam went and how long it lingered there.
+projector does, with two galvanometer mirrors chasing a point stream at a fixed
+rate, so what you see is where the beam went and how long it lingered there.
+All of the look, and none of the laser safety paperwork.
 
 **Video:** [What it does, in 50 seconds](https://www.youtube.com/watch?v=VdODFcz4YUY)
 
 ![A laser drawing of the test card: a red square, a cyan ring, a yellow bar and a white octagon, each with bright dots at its corners](docs/hero.png)
 
 <sub>The repo's test card scanned at 30 kpps. Note the bright dots at every
-corner and the soft trail on the ring — neither is drawn. Rendered by `gvtest`,
+corner and the soft trail on the ring: neither is drawn. Rendered by `gvtest`,
 the offline harness.</sub>
 
 <!-- downloads:start -->
@@ -68,7 +69,7 @@ Everything anybody recognises about laser graphics falls out of that:
 
 - **Corners have bright dots.** A sharp vertex is sent to the scanner several
   times over, so the beam sits there with nowhere to go and the light piles up.
-  That is what `Corner Dwell` is, and it is why a laser-drawn square has four
+  That's what `Corner Dwell` is, and it's why a laser-drawn square has four
   bright studs on it.
 - **Corners round off at speed.** A galvo is a mass on a spring. Wind `Galvo
   Speed` down from 60 kpps to 8 and the mirrors stop keeping up: the corners
@@ -80,13 +81,13 @@ Everything anybody recognises about laser graphics falls out of that:
   it paints the approach to a stroke as a hook leading into it.
 - **A busy frame flickers and crawls.** The scanner draws `pps ÷ frame rate`
   points per host frame and *continues where it left off*. Give it more path
-  than that and the drawing appears over several frames, visibly crawling —
-  which is exactly what a real projector does with a frame that is too busy.
+  than that and the drawing appears over several frames, visibly crawling,
+  which is just what a real projector does with a frame that's too busy.
   `Scan Rate Floor` thins the stream to keep the rate up, the way show software
   does.
 
 Turn `Galvo Speed` down and `Corner Dwell` up and it stops looking like a
-computer drawing lines. That is the whole point.
+computer drawing lines and starts looking like a laser.
 
 ## Finding the outline
 
@@ -94,7 +95,7 @@ computer drawing lines. That is the whole point.
 
 The clip is edge-detected at a small working resolution (`Trace Size`, 320
 pixels wide by default), thinned to a one-pixel skeleton, walked into ordered
-contours, and simplified so a straight edge is two points and not two hundred.
+contours, and simplified so a straight edge is two points rather than two hundred.
 
 **Detect On** picks what "different" means between two pixels, and it matters
 more than the operator does: **Luma** for ordinary brightness edges, **Alpha**
@@ -103,14 +104,14 @@ it), **Chroma** for the boundary between two colours of *equal brightness* that
 a luma detector is blind to, and **Luma or Alpha** for artwork that could
 arrive either way.
 
-**Background → Edge Mask** shows the mask on its own, which is how `Threshold`,
-`Detail`, `Min Length` and `Simplify` are actually set. Judging a threshold
+**Background → Edge Mask** shows the mask on its own, which is how you actually
+set `Threshold`, `Detail`, `Min Length` and `Simplify`. Judging a threshold
 through a layer of beam is guesswork.
 
-**Be honest about the input.** This works beautifully on logos, titles and line
-art, where there are real outlines to find. On busy footage it finds a mess of
-short strokes and the picture becomes a scribble — that is a property of the
-problem, not a setting you have not found yet.
+**Mind what you feed it.** It works beautifully on logos, titles and line art,
+where there are real outlines to find. On busy footage it finds a mess of short
+strokes and the picture turns into a scribble. That's the nature of the problem
+rather than a setting you haven't found yet.
 
 ## Blanking
 
@@ -118,7 +119,7 @@ problem, not a setting you have not found yet.
 
 <sub>`Blanking Delay = -5`: the beam comes on five points before the mirrors
 arrive. Every stroke is led into by a hook, and the blanked jumps *between*
-shapes are painted as faint lines across the frame — the "join the dots" look
+shapes are painted as faint lines across the frame: the "join the dots" look
 of a projector whose blanking is out. Set it to zero and they vanish.</sub>
 
 ## Controls
@@ -131,15 +132,15 @@ of a projector whose blanking is out. Set it to zero and they vanish.</sub>
 | **Output** | Background (Black / Clip / Dimmed Clip / Alpha / Edge Mask), Mix. |
 
 **Galvo Speed, Trace Size, Corner Dwell and Blanking Delay are real integers**
-in their own units, not 0..1 sliders — a scanner's rating is a number people
-know, so the control shows it.
+in their own units rather than 0..1 sliders. A scanner's rating is a number
+people know, so the control shows it.
 
 **Colour Mode = Clip** takes each point's colour from the clip underneath and
 pushes it toward a saturated laser primary, so a pink logo becomes a red beam
 rather than a washed-out one. **Palette** is one colour, or a hue sweep along
 the path with `Hue Spread`.
 
-**Persistence** is a camera's exposure, not a phosphor: it is how long the
+**Persistence** is a camera's exposure, not a phosphor: it's how long the
 shutter was open, which is how anybody has ever seen a laser photographed.
 
 ## Build
@@ -160,7 +161,7 @@ macOS builds universal (arm64 + x86_64) by default. Add
 ## Building and testing
 
 The offline harness drives the real classes, and most of it needs no GPU at
-all — the tracer, the scanner and the point budget are plain C++.
+all: the tracer, the scanner and the point budget are plain C++.
 
     ./build/gvtest --out /tmp/frame.png     the test card, scanned
     ./build/gvtest --trace                  the contour tracer
@@ -174,8 +175,8 @@ all — the tracer, the scanner and the point budget are plain C++.
 
 ## Status
 
-**v0.1.0, and honestly early.** Verified by measurement on an M4 Max,
-macOS 26.4 — except the three Windows rows, which come from a run on
+**v0.1.0, and still early days.** Verified by measurement on an M4 Max,
+macOS 26.4, except the three Windows rows, which come from a run on
 **win-lab** (x64 Windows 11 Pro, no GPU) on 2026-09-21:
 
 | Check | Result |
@@ -193,35 +194,36 @@ macOS 26.4 — except the three Windows rows, which come from a run on
 | Windows binary | x64 `Galvo.dll`, 404,992 bytes, `dumpbin /EXPORTS` shows `plugMain` |
 | Render cost | 0.7–1.0 ms/frame at 720p and 1080p (they are indistinguishable), 1.4–1.6 at 4K |
 
-Most of that cost is **one synchronous readback**, not the GPU: the beam
+Most of that cost is **one synchronous readback** rather than the GPU: the beam
 renderer is about 0.15 ms at every resolution, because it draws one quad per
-scanner interval and there are as many of those at 720p as at 4K. That is why
+scanner interval and there are as many of those at 720p as at 4K. That's why
 720p and 1080p time the same, and why **lowering `Trace Size` is the
 performance control** rather than lowering the output resolution.
 
 **The Windows side.** The released x64 DLL is built by the release workflow on
 a GitHub `windows-latest` runner. The one tested in Arena was cross-compiled in
 the Parallels guest on this Mac (ARM64 Windows 11, MSVC 2022 Build Tools,
-`cmake -A x64`, vcpkg triplet `x64-windows-static-md`), because there is no x64
+`cmake -A x64`, vcpkg triplet `x64-windows-static-md`), because there's no x64
 Windows machine in the local build loop, and CI itself is macOS-only. That
-hand-built DLL was dropped into Arena 7.27.1 on win-lab, which has no GPU — the
+hand-built DLL was dropped into Arena 7.27.1 on win-lab, which has no GPU: the
 OpenGL there is Mesa llvmpipe (`4.5 (Core Profile) Mesa 26.2.0`) placed beside
 Arena. The plugin registered, the DLL loaded, and applying the effect from
 Arena's own browser drew its inspector, groups and all, and logged
-`initialised`. That is registration, load and instantiation in Resolume, with
+`initialised`. That's registration, load and instantiation in Resolume, with
 the shaders compiling. It says **nothing about speed**, because a software
-rasteriser is not a GPU and no frame timing was taken on Windows. The ms/frame
-figures above remain macOS-only.
+rasteriser isn't a GPU and no frame timing was taken on Windows. The ms/frame
+figures above are still macOS-only.
 
 **Not yet done:** never run on a GPU in Resolume, never instantiated in Arena
-on macOS, and never used to drive a real laser — this models an ILDA scanner,
-it does not output ILDA. Nothing on Windows was exercised beyond instantiation:
+on macOS, and never used to drive a real laser: this models an ILDA scanner,
+and it doesn't output ILDA. Nothing on Windows was exercised beyond instantiation:
 no long session, no composition save and reload, no preset recall in the host.
 No OpenFX port, no user guide, no factory presets, and no Plotter mode. The
 [browser demo](https://galvo-demo.stoatworks-labs.com/) runs the plugin's own
-shaders but its CPU half — the tracer, the point stream and the galvo model —
-is a hand port to JavaScript, and nothing checks a port but a reader. See [AGENTS.md](AGENTS.md) for the full list of what is assumed
-rather than measured, and for the traps.
+shaders, but its CPU half (the tracer, the point stream and the galvo model)
+is a hand port to JavaScript, and nothing checks a port but a reader. See
+[AGENTS.md](AGENTS.md) for the full list of what's assumed rather than
+measured, and for the traps.
 
 <!-- attributions:start -->
 This project is built on other people's work — see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
