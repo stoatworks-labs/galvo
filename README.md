@@ -204,8 +204,9 @@ performance control** rather than lowering the output resolution.
 a GitHub `windows-latest` runner. The one tested in Arena was cross-compiled in
 the Parallels guest on this Mac (ARM64 Windows 11, MSVC 2022 Build Tools,
 `cmake -A x64`, vcpkg triplet `x64-windows-static-md`), because there's no x64
-Windows machine in the local build loop, and CI itself is macOS-only. That
-hand-built DLL was dropped into Arena 7.27.1 on win-lab, which has no GPU: the
+Windows machine in the local build loop, and the CI that runs on every push
+is macOS-only; only the release workflow builds for Windows. That hand-built
+DLL was dropped into Arena 7.27.1 on win-lab, which has no GPU: the
 OpenGL there is Mesa llvmpipe (`4.5 (Core Profile) Mesa 26.2.0`) placed beside
 Arena. The plugin registered, the DLL loaded, and applying the effect from
 Arena's own browser drew its inspector, groups and all, and logged
