@@ -97,7 +97,7 @@ whole CPU half of this plugin is plain C++ — which is why CI runs them.
   and instantiates it, and the shaders compile — on llvmpipe, a software
   rasteriser. Nothing was timed there.
 - **Never instantiated in Arena on macOS.** Here it is `oxbow` only.
-- No user guide, no OpenFX port, no video.
+- No user guide, no OpenFX port.
 - **The browser demo's CPU half is a port and nothing checks it.**
   `demo/plugin.js` re-implements `Tracer`, `PointStream`, `Scanner` and
   `Controls` in JavaScript, because without them the page has nothing to show.
