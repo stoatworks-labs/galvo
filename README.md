@@ -21,6 +21,8 @@ All of the look, and none of the laser safety paperwork.
 
 **Video:** [What it does, in 50 seconds](https://www.youtube.com/watch?v=VdODFcz4YUY)
 
+The [project page](https://stoatworks-labs.com/software/galvo/) has the downloads and the video.
+
 ![A laser drawing of the test card: a red square, a cyan ring, a yellow bar and a white octagon, each with bright dots at its corners](docs/hero.png)
 
 <sub>The repo's test card scanned at 30 kpps. Note the bright dots at every
